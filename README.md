@@ -25,7 +25,7 @@ cp fixedwidth.mq ~/.local/mq/config/
 Alternatively, skip the local copy entirely and import it straight from GitHub over HTTP:
 
 ```sh
-mq -I raw \
+mq --allow-http-import -I raw \
   'import "github.com/harehare/fixedwidth.mq" | fixedwidth::fixedwidth_parse(., [10, 3], true)' input.txt
 ```
 
@@ -94,24 +94,26 @@ mq -L . -I raw 'import "fixedwidth" | fixedwidth::fixedwidth_parse(., [10, 3], t
 ## HTTP Import
 
 `import`/`include` also accept `https://` URLs, or the shorter `github.com/{owner}/{repo}` form,
-so you can pull the module straight from this repository without cloning it:
+so you can pull the module straight from this repository without cloning it. HTTP imports are
+disabled by default, so pass `--allow-http-import`:
 
 ```sh
-mq -I raw \
+mq --allow-http-import -I raw \
   'import "github.com/harehare/fixedwidth.mq" | fixedwidth::fixedwidth_parse(., [10, 3], true)' input.txt
 ```
 
 Pin a released version instead of tracking the default branch with `@{tag}`:
 
 ```sh
-mq -I raw \
+mq --allow-http-import -I raw \
   'import "github.com/harehare/fixedwidth.mq@v1.0.0" | fixedwidth::fixedwidth_parse(., [10, 3], true)' input.txt
 ```
 
-By default only `raw.githubusercontent.com/harehare` is reachable this way; use
-`--allowed-domain` to allow other hosts. The first fetch is cached and recorded in `mq.lock`
-(commit it alongside scripts that rely on this import so re-runs use the exact content that was
-locked); pass `--refresh-modules` to pick up new commits on an unpinned import.
+By default only `raw.githubusercontent.com/harehare` is reachable this way; pass `--allowed-domain`
+to allow other hosts. The first fetch is cached and recorded in `mq.lock` (commit it alongside
+scripts that rely on this import so re-runs use the exact content that was locked); pass
+`--refresh-modules` to pick up new commits on an unpinned import, or `--frozen` in CI to fail
+instead of writing a new `mq.lock` entry.
 
 ## Compatibility
 

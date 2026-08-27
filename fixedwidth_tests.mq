@@ -1,0 +1,97 @@
+include "test"
+| include "fixedwidth"
+|
+
+# -- Line Splitting Tests --
+
+def test_split_line_basic():
+  let result = _fw_split_line("Alice     30 ", [10, 3])
+  | assert_eq(result, ["Alice", "30"])
+end
+
+def test_split_line_left_padded_numeric():
+  let result = _fw_split_line("Bob 025", [3, 4])
+  | assert_eq(result, ["Bob", "025"])
+end
+
+def test_split_line_short_line():
+  let result = _fw_split_line("Ann", [10, 3])
+  | assert_eq(result, ["Ann", ""])
+end
+
+def test_split_line_empty_line():
+  let result = _fw_split_line("", [3, 3])
+  | assert_eq(result, ["", ""])
+end
+
+# -- Header/Row Zipping Tests --
+
+def test_zip_dict_basic():
+  let result = _fw_zip_dict(["name", "age"], ["Alice", "30"])
+  | assert_eq(result, {"name": "Alice", "age": "30"})
+end
+
+def test_zip_dict_missing_trailing_field():
+  let result = _fw_zip_dict(["name", "age", "city"], ["Alice", "30"])
+  | assert_eq(result, {"name": "Alice", "age": "30", "city": ""})
+end
+
+# -- Parse Tests --
+
+| let fw_input = "name      age\nAlice     30 \nBob       25 \n" |
+
+# @parametrize([[true, 2], [false, 3]])
+def test_fixedwidth_parse_len(as_dict, expected_len):
+  let result = fixedwidth_parse(fw_input, [10, 3], as_dict)
+  | assert_eq(len(result), expected_len)
+end
+
+def test_fixedwidth_parse_with_header():
+  let result = fixedwidth_parse(fw_input, [10, 3], true)
+  | assert_eq(result, [{"name": "Alice", "age": "30"}, {"name": "Bob", "age": "25"}])
+end
+
+def test_fixedwidth_parse_without_header():
+  let result = fixedwidth_parse(fw_input, [10, 3], false)
+  | assert_eq(result, [["name", "age"], ["Alice", "30"], ["Bob", "25"]])
+end
+
+def test_fixedwidth_parse_skips_blank_lines():
+  let result = fixedwidth_parse("Alice     30 \n\nBob       25 \n", [10, 3], false)
+  | assert_eq(len(result), 2)
+end
+
+def test_fixedwidth_parse_skips_whitespace_only_lines():
+  let result = fixedwidth_parse("Alice     30 \n   \nBob       25 \n", [10, 3], false)
+  | assert_eq(len(result), 2)
+end
+
+def test_fixedwidth_parse_empty_input_with_header():
+  let result = fixedwidth_parse("", [10, 3], true)
+  | assert_eq(result, [])
+end
+
+def test_fixedwidth_parse_single_column():
+  let result = fixedwidth_parse("Alice\nBob\n", [10], false)
+  | assert_eq(result, [["Alice"], ["Bob"]])
+end
+
+# -- Byte-width Note Example (README) --
+#
+# Regression tests for the Shift-JIS byte-length example shown in the README's
+# character-vs-byte width note, using mq's built-in `encode`/`decode` (mq v0.8.4+).
+
+def test_sjis_byte_length_full_width():
+  let result = len(encode("氏名", "shift_jis"))
+  | assert_eq(result, 4)
+end
+
+def test_sjis_byte_length_ascii():
+  let result = len(encode("Alice", "shift_jis"))
+  | assert_eq(result, 5)
+end
+
+def test_sjis_roundtrip():
+  let result = decode(encode("氏名", "shift_jis"), "shift_jis")
+  | assert_eq(result, "氏名")
+end

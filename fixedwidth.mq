@@ -1,0 +1,69 @@
+# Fixed-width (fixed-length) text implementation in mq.
+#
+# Parses text where each record is one line and fields occupy a fixed
+# number of characters, in column order (no delimiter). Common in legacy
+# COBOL/mainframe exports and Japanese banking/EDI formats.
+
+# Splits a single line into field substrings according to the given column
+# widths (character counts, in order). Each field is trimmed of surrounding
+# whitespace, so both left-padded (numeric) and right-padded (text) columns
+# come out the same way. If the line ends before a column starts, that
+# field and all remaining ones are empty.
+#
+# Example:
+# ```
+# import "fixedwidth" | fixedwidth::_fw_split_line("Alice     30", [10, 3])
+# #=> ["Alice", "30"]
+# ```
+#
+# Returns: array
+def _fw_split_line(line, widths):
+  let n = len(line)
+  | let acc = fold(widths, [0, []], fn(acc, width):
+      let start = acc[0]
+      | let stop = if (start + width < n): start + width else: n
+      | let field = if (start >= n): "" else: trim(slice(line, start, stop))
+      | [start + width, add(acc[1], [field])];
+    )
+  | acc[1]
+end
+
+# Pairs a header row with a data row into a dict. Extra header columns
+# beyond the row's length are paired with an empty string.
+#
+# Returns: dict
+def _fw_zip_dict(header, row):
+  if (len(header) == 0): dict()
+  else:
+    dict(map(range(len(header) - 1), fn(i):
+      [header[i], if (i < len(row)): row[i] else: ""];
+    ))
+end
+
+# Parses fixed-width (fixed-length) text into an array, splitting each line
+# into fields according to `widths` (an array of character counts, one per
+# column, in order). Blank lines (empty or whitespace-only) are skipped.
+#
+# When `has_header` is true, the first non-blank line is treated as field
+# names and the result is an array of dicts, one per remaining line.
+# Otherwise every line, including what would be the header, becomes an
+# array of trimmed field strings.
+#
+# Example:
+# ```
+# import "fixedwidth" | fixedwidth::fixedwidth_parse("name      age\nAlice     30\nBob       25", [10, 3], true)
+# #=> [{"name": "Alice", "age": "30"}, {"name": "Bob", "age": "25"}]
+# ```
+#
+# Returns: array
+def fixedwidth_parse(input, widths, has_header):
+  let lines = filter(split(input, "\n"), fn(line): trim(line) != "";)
+  | let rows = map(lines, fn(line): _fw_split_line(line, widths);)
+  | if (not(has_header)): rows
+    elif (len(rows) == 0): []
+    else:
+      do
+        let header = first(rows)
+        | map(slice(rows, 1, len(rows)), fn(row): _fw_zip_dict(header, row);)
+      end
+end
